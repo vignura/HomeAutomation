@@ -11,8 +11,9 @@
 #include <SoftwareSerial.h>
 #include <Relay.h>
 #include <EEPROM.h>
-#include "utility.h"
-#include "serial_com.h"
+#include <utility.h>
+#include <serial_com.h>
+#include <CmdProcess.h>
 
 /*************************************** Pin Mappings ******************************************/
 // Relay 
@@ -31,39 +32,12 @@
 /* comment the below macro to disable debug prints */
 #define PRINT_DEBUG
 
-/* comment the below macro to disable Bluetooth Response messages */
-#define SEND_BTRES
-
 #define MAX_DEBUG_MSG_SIZE                  128
 #define MAX_CMD_STRING_SIZE                 32
 
 #define SELF_TEST_COUNT                     0x00
-#define HC05_BUAD_RATE                      9600
+#define MASTER_BUAD_RATE                    9600
 #define DEBUG_BUAD_RATE                     9600
-#define HC05_SERIAL_READ_DELAY_MS           0x02
-
-/* bluetooth command Strings*/
-#define CMD_STR_RELAY_ON                  "ON"
-#define CMD_STR_RELAY_ON_TIMER            "TON " /* TON hh:mm:ss */
-#define CMD_STR_RELAY_OFF                 "OFF"
-#define CMD_STR_START_TEST                "TEST"
-#define CMD_STR_CHANGE_PWD                "ChPwd" /*ChPwd 0000 */
-#define CMD_STR_RELAY_OFF_ALL             "AOFF"
-
-/* bluetooth response Strings*/
-#define RES_RELAY_ON                      "ON"
-#define RES_RELAY_OFF                     "OFF"
-#define RES_START_TEST                    "TEST"
-
-/* bluetooth command IDs */
-#define CMD_INVALID_CMD_ID                      -1
-#define CMD_STR_RELAY_ON_ID                     0x01
-#define CMD_STR_RELAY_ON_TIMER_ID               0x02
-#define CMD_STR_RELAY_OFF_ID                    0x03
-#define CMD_STR_START_TEST_ID                   0x04
-#define CMD_STR_CHANGE_PWD_ID                   0x05
-#define CMD_STR_RELAY_OFF_ALL_ID                0x06
-
 
 /****************************************** globals ********************************************/
 /* SoftwareSerial (RX, TX) */
@@ -77,15 +51,7 @@ unsigned char g_ucRlyPin[MAX_RELAY_COUNT] = {RELAY_01, RELAY_02, RELAY_03, RELAY
   char g_arrcMsg[MAX_DEBUG_MSG_SIZE] = {0};
 #endif
 
-#ifdef SEND_BTRES
-  char g_arrcBTMsg[MAX_CMD_STRING_SIZE] = {0};
-#endif
-
 uint8_t g_address[2];
-unsigned long g_ulOnTimeSec = 0;
-unsigned char g_ucRlySel = 0;
-int g_iPwd = 0;
-
 /***********************************************************************************************/
 /*! 
 * \fn         :: setup()
@@ -104,6 +70,10 @@ void setup() {
   //pinMode(HC05_EN, OUTPUT);
   //digitalWrite(HC05_EN, LOW);
 
+  // assign temporary address
+  g_address[0] = 1;
+  g_address[1] = 1;
+
   Relay_init();
 
   // Serial port initialization
@@ -111,7 +81,10 @@ void setup() {
     Serial.begin(DEBUG_BUAD_RATE);
   #endif
   
-  SS_Master.begin(HC05_BUAD_RATE);
+  SS_Master.begin(MASTER_BUAD_RATE);
+
+  // over ride TX pin to input state
+  pinMode(MTX_PIN, INPUT);
 
   // perform self test
   SelfTest(SELF_TEST_COUNT);
@@ -212,7 +185,9 @@ void loop() {
       // if valid command is received, process it
       CmdProcess(&cmd_packet, &res_packet);
 
+      pinMode(MTX_PIN, OUTPUT);
       send_packet(SS_Master, &res_packet);
+      pinMode(MTX_PIN, INPUT);
     }
     else
     {

@@ -1,0 +1,14 @@
+Commands
+001.001 ON 1
+001.001 TON 1 00:00:5
+001.001 OFF 1
+001.001 AOFF
+001.001 TEST
+
+Node to Node
+Multihop
+retransmit
+TCP and UDP
+Multicast group
+Multicast light group
+Multicast fan group
