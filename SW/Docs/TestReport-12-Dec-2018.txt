@@ -1,0 +1,14 @@
+Setup:
+connected arduino and HC-06 As per schematic
+APP: Bluetooth Terminal (Andriod: Play store)
+
+Results:
+1) Usr LED 1 - verified
+2) Usr LED 2 - verified
+3) Relay Pin - verified
+4) Self Test - two Usr LEDs glows along with Relay switched to On state for 2 sec
+5) "RlyOn" - command verified
+6) "RlyOff" - command verified
+7) "StTest" - command verified
+8) "RlyOn HH:MM:SS" - command verified
+	"RlyOn 00:05:59" - Relay pin was on for 359 seconds 
