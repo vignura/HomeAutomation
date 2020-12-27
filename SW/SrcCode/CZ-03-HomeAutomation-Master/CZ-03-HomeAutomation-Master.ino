@@ -89,7 +89,7 @@ void loop() {
   int iCmdID = 0;
 
   // read data from HC-05 if available
-  iReadBytes = RecvCmd(Serial, arrcCmd, MAX_CMD_STRING_SIZE); 
+  iReadBytes = RecvCmd<HardwareSerial>(Serial, arrcCmd, MAX_CMD_STRING_SIZE); 
   if(iReadBytes > 0)
   {
     #ifdef PRINT_DEBUG
@@ -367,7 +367,7 @@ void CmdProcess(int iCmdID)
   cmd_packet.data_size = data_size;
   cmd_packet.checksum = compute_checksum(&cmd_packet);
 
-  if(transmit_command(SSerial, &cmd_packet, &res_packet, SERIAL_CMD_TIMEOUT_MS) < SERIAL_HEADER_SIZE)
+  if(transmit_command<SoftwareSerial>(SSerial, &cmd_packet, &res_packet, SERIAL_CMD_TIMEOUT_MS) < SERIAL_HEADER_SIZE)
   {
     #ifdef PRINT_DEBUG
         sprintf(g_arrcMsg, "transmit_command failed..!");

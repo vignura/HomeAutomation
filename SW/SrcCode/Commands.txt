@@ -12,3 +12,4 @@ TCP and UDP
 Multicast group
 Multicast light group
 Multicast fan group
+Test using hardware serial

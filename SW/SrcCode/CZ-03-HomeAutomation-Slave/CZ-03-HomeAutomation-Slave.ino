@@ -171,7 +171,7 @@ void loop() {
   int iReadBytes = 0;
 
   // read data from serial port if available
-  iReadBytes = recv_packet(SS_Master, &cmd_packet); 
+  iReadBytes = recv_packet<SoftwareSerial>(SS_Master, &cmd_packet); 
   if(iReadBytes > 0)
   {
     #ifdef PRINT_DEBUG
@@ -186,7 +186,7 @@ void loop() {
       CmdProcess(&cmd_packet, &res_packet);
 
       pinMode(MTX_PIN, OUTPUT);
-      send_packet(SS_Master, &res_packet);
+      send_packet<SoftwareSerial>(SS_Master, &res_packet);
       pinMode(MTX_PIN, INPUT);
     }
     else
