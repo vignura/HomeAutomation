@@ -6,15 +6,14 @@
 #include <CmdProcess.h>
 
 /* Master pins */
-#define MTX_PIN         2
-#define MRX_PIN         3
+#define BUS_PIN         2
 
 /***********************************************************************************************/
 /* comment the below macro to disable debug prints */
 #define PRINT_DEBUG
 
 #define MAX_DEBUG_MSG_SIZE                  128
-#define MAX_CMD_STRING_SIZE                 32
+#define MAX_CMD_STRING_SIZE                 128
 
 #define MAX_RELAY_COUNT                     5
 #define SELF_TEST_COUNT                     0x00
@@ -32,19 +31,22 @@
 /* bluetooth command IDs */
 #define CMD_INVALID_CMD_ID                      -1
 
+#define DEVICE_ADDRESS                           "1.1"
 #define SERIAL_CMD_TIMEOUT_MS                   1000
 /****************************************** globals ********************************************/
 /* SoftwareSerial (RX, TX) */
-SoftwareSerial SSerial(MRX_PIN, MTX_PIN);
+SoftwareSerial SSerial(BUS_PIN, BUS_PIN);
 
 #ifdef PRINT_DEBUG
   char g_arrcMsg[MAX_DEBUG_MSG_SIZE] = {0};
   char g_arrcBTMsg[MAX_CMD_STRING_SIZE] = {0};
 #endif
 
+uint8_t g_dev_addr[2];
 uint8_t g_Slave_add[2];
 unsigned long g_ulOnTimeSec = 0;
 unsigned char g_ucRlySel = 0;
+
 /***********************************************************************************************/
 /*! 
 * \fn         :: setup()
@@ -58,13 +60,16 @@ unsigned char g_ucRlySel = 0;
 /***********************************************************************************************/
 void setup() {
   
-  // assign slave temporary address
-  g_Slave_add[0] = 1;
-  g_Slave_add[1] = 1;
-
   // Serial port initialization
   #ifdef PRINT_DEBUG
     Serial.begin(DEBUG_BUAD_RATE);
+  #endif
+
+  str_to_addr(DEVICE_ADDRESS, g_dev_addr);
+  set_dev_addr(g_dev_addr);
+  #ifdef PRINT_DEBUG
+      sprintf(g_arrcMsg, "Device Address: %03d.%03d", g_dev_addr[0], g_dev_addr[1]);
+      Serial.println(g_arrcMsg);
   #endif
   
   SSerial.begin(SS_BUAD_RATE);
@@ -152,6 +157,10 @@ bool isValidCmd(char *parrcCmd, int iCmdLen, int *out_iCmdID)
   }
   else
   {
+    #ifdef PRINT_DEBUG
+      sprintf(g_arrcMsg,"Slave Address: %03d.%03d", slave_address[0], slave_address[1]);
+      Serial.println(g_arrcMsg);
+    #endif
     // copy to global
     parrcCmd += ADDRESS_STRING_SIZE; 
     g_Slave_add[0] = slave_address[0];
@@ -295,19 +304,16 @@ bool isValidCmd(char *parrcCmd, int iCmdLen, int *out_iCmdID)
 void CmdProcess(int iCmdID)
 { 
   int i = 0;
-  int iRetVal = 0;
-  int data_size = 0;
+  int ret = 0;
+  int cmd_data_size = 0;
+  int res_data_size = 0;
 
-  serial_packet cmd_packet = {0};
-  serial_packet res_packet = {0};
-  data_packets Udata_packets = {0};
+  cmd_res_pkt cmd_packet = {0};
+  cmd_res_pkt res_packet = {0};
+  cmd_res_data Udata = {0};
 
-  Udata_packets.ptr = (uint16_t*)cmd_packet.data;
+  Udata.ptr = (uint16_t*)cmd_packet.data;
 
-  // fill the command packet
-  cmd_packet.header = SERIAL_CMD_HEADER;
-  cmd_packet.address[0] = g_Slave_add[0];
-  cmd_packet.address[1] = g_Slave_add[1];
   cmd_packet.cmdID = iCmdID;
 
   switch(iCmdID)
@@ -317,7 +323,8 @@ void CmdProcess(int iCmdID)
         sprintf(g_arrcMsg, "Running self test", g_ucRlySel);
         Serial.println(g_arrcMsg);
       #endif
-      data_size = 0;
+      cmd_data_size = 0;
+      res_data_size = 0;
     break;
 
     case CMD_RLY_ON_ID:
@@ -326,8 +333,9 @@ void CmdProcess(int iCmdID)
         sprintf(g_arrcMsg, "Turning Relay %d ON", g_ucRlySel);
         Serial.println(g_arrcMsg);
       #endif
-      Udata_packets.Prelay_on->relay_num = g_ucRlySel;
-      data_size = sizeof(relay_on);
+      Udata.Prelay_on->relay_num = g_ucRlySel;
+      cmd_data_size = sizeof(relay_on);
+      res_data_size = 0;
     break;
 
     case CMD_RLY_ON_TIMER_ID:
@@ -336,9 +344,10 @@ void CmdProcess(int iCmdID)
         sprintf(g_arrcMsg, "Turning Relay %d ON for %ld seconds", g_ucRlySel, g_ulOnTimeSec);
         Serial.println(g_arrcMsg);
       #endif
-      Udata_packets.Prelay_on_timer->relay_num = g_ucRlySel;
-      Udata_packets.Prelay_on_timer->on_time_sec = g_ulOnTimeSec;
-      data_size = sizeof(relay_on_timer);
+      Udata.Prelay_on_timer->relay_num = g_ucRlySel;
+      Udata.Prelay_on_timer->on_time_sec = g_ulOnTimeSec;
+      cmd_data_size = sizeof(relay_on_timer);
+      res_data_size = 0;
     break;
 
     case CMD_RLY_OFF_ID:
@@ -347,8 +356,9 @@ void CmdProcess(int iCmdID)
         sprintf(g_arrcMsg, "Turning Relay %d OFF", g_ucRlySel);
         Serial.println(g_arrcMsg);
       #endif
-      Udata_packets.Prelay_off->relay_num = g_ucRlySel;
-      data_size = sizeof(relay_off);
+      Udata.Prelay_off->relay_num = g_ucRlySel;
+      cmd_data_size = sizeof(relay_off);
+      res_data_size = 0;
     break;
 
     case CMD_RLY_OFF_ALL_ID:
@@ -357,27 +367,31 @@ void CmdProcess(int iCmdID)
         sprintf(g_arrcMsg, "Turning all Relay OFF");
         Serial.println(g_arrcMsg);
       #endif
-      data_size = 0;
+      cmd_data_size = 0;
+      res_data_size = 0;
     break;
 
     default:
       ;// do nothing 
   }
 
-  cmd_packet.data_size = data_size;
-  cmd_packet.checksum = compute_checksum(&cmd_packet);
+  cmd_packet.data_size = cmd_data_size;
 
-  if(transmit_command<SoftwareSerial>(SSerial, &cmd_packet, &res_packet, SERIAL_CMD_TIMEOUT_MS) < SERIAL_HEADER_SIZE)
+  ret = transmit_to<SoftwareSerial>(SSerial, g_Slave_add, (uint8_t*)&cmd_packet, (cmd_data_size + CMD_DATA_HEADER_SIZE),
+                                   (uint8_t*)&res_packet, (res_data_size + CMD_DATA_HEADER_SIZE), SERIAL_CMD_TIMEOUT_MS);
+  if(ret != SERIAL_SUCCESS)
   {
     #ifdef PRINT_DEBUG
-        sprintf(g_arrcMsg, "transmit_command failed..!");
+        sprintf(g_arrcMsg, "transmitting to %03d.%03d failed..!", g_Slave_add[0], g_Slave_add[1]);
+        Serial.println(g_arrcMsg);
+        get_err_str(ret, g_arrcMsg, sizeof(g_arrcMsg));
         Serial.println(g_arrcMsg);
     #endif    
   }
   else
   {
     #ifdef PRINT_DEBUG
-        sprintf(g_arrcMsg, "transmit_command success");
+        sprintf(g_arrcMsg, "transmitting to %03d.%03d success", g_Slave_add[0], g_Slave_add[1]);
         Serial.println(g_arrcMsg);
     #endif     
   }
