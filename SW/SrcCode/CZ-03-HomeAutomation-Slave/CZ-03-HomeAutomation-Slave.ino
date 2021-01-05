@@ -35,10 +35,11 @@
 #define MAX_CMD_STRING_SIZE                 32
 
 #define SELF_TEST_COUNT                     0x00
-#define MASTER_BUAD_RATE                    9600
+#define MASTER_BUAD_RATE                    19200
 #define DEBUG_BUAD_RATE                     9600
 
-#define SLAVE_ADDRESS                       "1.3"
+#define SLAVE_ADDRESS                       "1.2"
+#define EEPROM_ADDRESS_LOCATION             512
 /****************************************** globals ********************************************/
 /* SoftwareSerial (RX, TX) */
 SoftwareSerial SS_Master(BUS_PIN, BUS_PIN);
@@ -76,7 +77,9 @@ void setup() {
     Serial.begin(DEBUG_BUAD_RATE);
   #endif
 
-  str_to_addr(SLAVE_ADDRESS, g_dev_addr);
+  // read device address from EEPROM
+  EEPROM.get(EEPROM_ADDRESS_LOCATION, g_dev_addr);
+  // str_to_addr(SLAVE_ADDRESS, g_dev_addr);
   set_dev_addr(g_dev_addr);
   #ifdef PRINT_DEBUG
       sprintf(g_arrcMsg, "Device Address: %03d.%03d", g_dev_addr[0], g_dev_addr[1]);

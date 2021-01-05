@@ -17,7 +17,7 @@
 
 #define MAX_RELAY_COUNT                     5
 #define SELF_TEST_COUNT                     0x00
-#define SS_BUAD_RATE                        9600
+#define SS_BUAD_RATE                        19200
 #define DEBUG_BUAD_RATE                     9600
 
 #define ADDRESS_STRING_SIZE                8 // eg 001.001
@@ -31,8 +31,9 @@
 /* bluetooth command IDs */
 #define CMD_INVALID_CMD_ID                      -1
 
-#define DEVICE_ADDRESS                           "1.1"
-#define SERIAL_CMD_TIMEOUT_MS                   1000
+#define DEVICE_ADDRESS                       "1.1"
+#define SERIAL_CMD_TIMEOUT_MS                 1000
+#define EEPROM_ADDRESS_LOCATION               512
 /****************************************** globals ********************************************/
 /* SoftwareSerial (RX, TX) */
 SoftwareSerial SSerial(BUS_PIN, BUS_PIN);
@@ -65,7 +66,9 @@ void setup() {
     Serial.begin(DEBUG_BUAD_RATE);
   #endif
 
-  str_to_addr(DEVICE_ADDRESS, g_dev_addr);
+  // read device address from EEPROM
+  EEPROM.get(EEPROM_ADDRESS_LOCATION, g_dev_addr);
+  // str_to_addr(DEVICE_ADDRESS, g_dev_addr);
   set_dev_addr(g_dev_addr);
   #ifdef PRINT_DEBUG
       sprintf(g_arrcMsg, "Device Address: %03d.%03d", g_dev_addr[0], g_dev_addr[1]);
